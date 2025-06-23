@@ -1,0 +1,16 @@
+# Python-generated files
+__pycache__/
+*.py[oc]
+build/
+dist/
+wheels/
+*.egg-info
+
+# Virtual environments
+.venv
+
+/.quarto/
+FARO Product Engineering_ Data Scientist Take Home Test.pdf
+
+/data/raw/
+/data/splits/

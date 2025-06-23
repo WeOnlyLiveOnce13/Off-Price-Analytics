@@ -1,0 +1,19 @@
+project: 
+  type: default
+  output-dir: "output"
+
+
+format: 
+  html: 
+    toc: true
+    toc-depth: 2
+    output-ext: ".html"
+    output-dir: "output/web"
+
+
+  pdf:
+    toc: true
+    toc-depth: 2
+    output-ext: ".html"
+    output-dir: "output/reports"
+    latex-engine: xelatex

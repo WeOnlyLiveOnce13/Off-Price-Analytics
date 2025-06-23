@@ -1,0 +1,1668 @@
+---
+title: "Faro Off-Price Retail analytics"
+subtitle: ""
+author: "Dan A. Tshisungu"
+date: today
+description: "In this project, we attempt to provide insights on Faro and its retail business of discounted branded products."
+toc: true
+format: 
+    html: default
+editor: 
+    render-on-save: true
+kernelspec:
+  name: faro
+  language: python
+  display_name: "Faro Kernel"
+---
+# 1. Background
+
+Faro, an off-price retailer that specialises in selling branded products at 
+discounted prices. The business wants to understand which product types, brands, and  
+suppliers move fastest, how pricing affects inventory turnover, and how customer shopping 
+habits vary by region and time.
+
+# 2. Data Cleaning and preparation
+
+```{python}
+#| echo: false
+#| include: false
+import os
+
+print("Current working directory:", os.getcwd())
+```
+
+## 2.1. Load data
+
+We load the dataset and display the first 10 transactions.
+
+```{python}
+#| code-fold: true
+#| label: data-loading
+
+import pandas as pd
+import numpy as np
+from scipy import stats
+from scipy.stats import boxcox
+from scipy.stats import skew
+
+from sklearn.preprocessing import PowerTransformer, QuantileTransformer
+from sklearn.preprocessing import StandardScaler
+from sklearn.metrics import mutual_info_score
+from sklearn.feature_extraction import DictVectorizer
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import accuracy_score, precision_score, recall_score, classification_report
+
+
+from sklearn.model_selection import StratifiedKFold, cross_validate
+from sklearn.linear_model import LogisticRegression
+from imblearn.over_sampling import SMOTE
+from imblearn.under_sampling import RandomUnderSampler
+from imblearn.over_sampling import RandomOverSampler
+from sklearn.tree import DecisionTreeClassifier
+
+
+from lets_plot import *
+from plotnine import *
+
+LetsPlot.setup_html()
+
+df = pd.read_csv('../data/raw/offprice_transactions.csv')
+df.head(10)
+```
+
+Below is the description of each feature:
+
+-  **TransactionID**: Unique ID for each transaction 
+-  **StoreID**: Store location identifier 
+-  **Date**: Date of transaction 
+-  **ProductID**: Unique product identifier 
+-  **Brand**: Product brand 
+-  **Supplier**: Supplier of the product 
+-  **Category**: Top-level product category (e.g., Apparel, Footwear, Accessories, Kids) 
+-  **Subcategory**: Second-level product classification (e.g., Tops, Boots, Bags, Boys) 
+-  **Type**: Third-level, most granular product type (e.g., T-shirt, Sneakers, Clutch, Puzzle) 
+-  **OriginalPrice**: Original list price 
+-  **DiscountedPrice**: Actual sale price 
+-  **Quantity**: Number of units sold (can be negative for returns) 
+-  **CustomerID**: Encrypted customer ID 
+-  **Region**: Store region (e.g., GP, WC, KZN)
+  
+## 2.1. Dataset Inspection
+
+We check the number of observations and features in the dataset.
+
+```{python}
+#| code-fold: true
+#| label: data-shape
+
+print(f"Our dataset has {df.shape[0]} transactions and {df.shape[1]} features.")
+
+```
+
+
+**Features types:**
+
+We check the feature types to find out what feature may need conversion.
+
+```{python}
+#| code-fold: true
+#| label: features-types
+
+df.dtypes
+```
+
+:::{.callout-note collapse="true" title="Features Insights"}
+- `Date` feature has to be converted into a datetime feature, and temporal features (day, week, month) extracted from it.
+- Create `DiscountPercent` feature from the price features.
+- Create `Revenue` feature based on both `Price` and `Quantity`. Refer to @cau-revenue.
+:::
+
+**Feature Information:**
+
+```{python}
+#| code-fold: true
+#| label: features-info
+
+df.info()
+```
+
+:::{#cau-revenue .callout-caution title="Revenue formula" collapse="true"}
+Some products are sold at normal price while others are sold at a discounted price.  
+Thus, the formula for the `Revenue` feature is:
+
+$$
+\text{Revenue} =
+\begin{cases}
+\text{Quantity} \times \text{OriginalPrice}, & \text{if } \texttt{ClearanceFlag} = \texttt{No} \\
+\text{Quantity} \times \text{DiscountedPrice}, & \text{if } \texttt{ClearanceFlag} = \texttt{Yes}
+\end{cases}
+$$
+
+:::
+
+
+## 2.3. Data Quality issues
+
+We now check any data quality issues:
+
+-   duplicate values
+-   missing values
+-   skewness of the distribution 
+-   outliers
+-   incorrect feature formating etc
+  
+
+### 2.3.1. Duplicate values
+
+```{python}
+#| code-fold: true
+#| label: duplicate-check
+
+df.duplicated().any()
+```
+
+:::{.callout-note title="Duplicate value Insights"}
+There are no duplicate value in the dataset.
+:::
+
+### 2.3.2. Missing value analysis
+
+Below we check the number of missing value for each feature:
+```{python}
+#| code-fold: true
+#| label: missing-value
+
+df.isnull().any()
+```
+
+:::{.callout-note title="Missing Value Insights"}
+There are no missing value in the dataset.
+:::
+
+### 2.3.3. Distribution analysis
+
+We check the distribution of both the numerical and categorical features.
+But first we extract numerical and categorical features.
+
+```{python}
+#| code-fold: true
+#| label: feature-type-extraction
+
+numerical_columns = df.select_dtypes(include="number").columns.to_list()
+
+categorical_columns = df.select_dtypes(exclude="number").columns.to_list()
+
+print(f"Numerical features in the dataset: {numerical_columns}")
+
+print(f"Categorical features in the dataset: {categorical_columns}")
+```
+
+:::{.callout-caution title="Features Insights"}
+Remember we have to convert the `Date` feature later on.
+:::
+
+**A. Numerical features**
+
+**Distribution of numerical features:**
+
+```{python}
+#| code-fold: true
+#| label: numerical-distribution
+#| lst-label: lst-skewness
+#| lst-cap: Skewness plot 
+
+
+# Extract numerical features
+numerical = ["OriginalPrice", "DiscountedPrice", "Quantity"]
+
+for feat in numerical: 
+
+    # Extract skewness
+    print(f"Feature: {feat}:")
+    skewness = skew(df[feat])
+
+    # Print
+    print(f"Skewness is {skewness}")
+    
+    # Generate plot
+    p = (ggplot(df, aes(x=feat)) +
+         geom_density(color='darkgreen', alpha=.7) +
+         ggtitle(f"Distribution of {feat} (Skewness: {skewness:.2f})") +
+         xlab(feat) + ylab("Density") +
+         theme_minimal())
+
+    # Show the plot
+    p
+```
+
+
+
+:::{.callout-note title="Numerical feature Insights" collapse="true"}
+-   `OriginalPrice` feature is uniformly distributed meaning products are sold throughout the price range and no particular `OriginalPrice` is informative.
+-   `DiscountedPrice` feature is skewed to the right meaning most products are sold at a lower `DiscountedPrice`, up to `R140`, compared to higher prices, above `R150`.
+-   `Quantity` feature displays how products are not sold in no particular quantity. 
+-   We also observe one or two items returned every now and then, `5%` of the sales.
+:::
+
+**Statistical Measure of Numerical features**
+
+```{python}
+#|code-fold: true
+#| label: numerical-stats
+#| lst-label: lst-numerical-feature
+#| lst-cap: Numerical features description 
+
+df.describe()
+```
+
+
+**B. Categorical features**
+
+We check the count of classes within each categorical feature:
+
+```{python}
+#|code-fold: true
+#| label: categorical-stats
+
+df.nunique()
+```
+
+
+:::{.callout-note collapse="true" title="Categorical features Insights"}
+-   Some customers have multiple transactions, so `CustomerID` is not unique.
+-   9000 unique products are sold
+-   10 unique brands and stores
+-   Products are bought in 7 different quantities, may need to investigate further for a correlation between quantity and price.
+-   60470 unique customers, maybe investigate or cluster them based on their purchasing behavior.
+:::
+
+**Class count in each feature:**
+
+```{python}
+#|code-fold: true
+#| label: categorical-distribution
+
+
+categories = ["StoreID", "ProductID", "Brand", "Supplier", "Category", "Subcategory", "Type", "CustomerID", "Region"]
+
+for col in categories:
+    print(f"{col} unique values: {df[col].value_counts()}")
+    print("--"*20)
+```
+
+**Statistical Measure of Categorical features**
+
+We check a more summarized version of the features:
+```{python}
+#|code-fold: true
+#| label: categorical-count
+
+df.describe(exclude="number")
+```
+
+
+**Target feature : `ClearanceFlag`**
+
+```{python}
+#|code-fold: true
+#| label: target-variable
+
+
+df["ClearanceFlag"].value_counts()
+```
+
+
+:::{.callout-note collapse="true" title="Target feature Insight"}
+Out of 100000 items sold:
+
+-   79980, ~80%, were not on clearance sale
+-   20020, ~20%, were on clearance sale
+-   Stores sell mostly items at the normal rate. 
+-   A highly imbalanced dataset (1:4 ratio) for building a predictive model.
+:::
+
+### 2.3.4. Data preparation
+
+**A. Formatting features**
+
+We convert the date feature in a datetime type, and we ensure numerical features are properly set.
+```{python}
+#|code-fold: true
+#| label: feature-formatting
+
+
+df['Date'] = pd.to_datetime(df['Date'])
+
+df['OriginalPrice'] = pd.to_numeric(df['OriginalPrice'], errors='coerce')
+df['DiscountedPrice'] = pd.to_numeric(df['DiscountedPrice'], errors='coerce')
+df['Quantity'] = pd.to_numeric(df['Quantity'], errors='coerce')
+```
+
+**B. Feature preparation**
+
+At this stage @lst-numerical-feature, we observed that the lowest of value of the `Quantity` feature is **-2**. We must take care of returned products as well create a `Revenue` @cau-revenue. 
+
+
+
+:::{.callout-tip title="Features"}
+
+- Every returned product was entered as a negative number. We create a new feature to describe if a product is return. e.g `IsReturn`.
+- Machine learning behave differently to the presence of negative numbers such as quantity = -1. We must consider both the business logic (A negative quantity means a return and thus an opportunity loss) and the model performance impact.
+:::
+
+```{python}
+#|code-fold: true
+#| label: return-feature
+
+
+# 1. Separate quantities and create indicators
+df['QuantityAbs'] = df['Quantity'].abs()
+# Identify returns
+df['IsReturn'] = (df['Quantity'] < 0).astype(int)
+df['TransactionType'] = df['Quantity'].apply(lambda x: 'Return' if x < 0 else 'Sale')
+
+
+# 2. Create revenue Revenue with proper handling
+df['RevenueAbs'] = np.where(df['ClearanceFlag'] == 'No', 
+                            df['QuantityAbs'] * df['OriginalPrice'],
+                            df['QuantityAbs'] * df['DiscountedPrice'])
+
+
+# 3. Create final Revenue (negative for returns)
+df['RevenueFinal'] = np.where(df['IsReturn'] == 1, 
+                              -df['RevenueAbs'], 
+                              df['RevenueAbs'])
+
+# 4. Drop original Quantity if desired
+df = df.drop('Quantity', axis=1)
+
+
+# 5. create time-based features
+df['Year'] = df['Date'].dt.year
+df['Month'] = df['Date'].dt.month
+df['WeekOfYear'] = df['Date'].dt.isocalendar().week
+df['DayOfWeek'] = df['Date'].dt.dayofweek
+
+# 6. Calculate discount percentage
+df['DiscountPercentage'] = ((df['OriginalPrice'] - df['DiscountedPrice']) / df['OriginalPrice'] * 100).round(2)
+
+df
+```
+
+
+**C. Outlier Analysis**
+
+We observed @lst-skewness that `DiscountedPrice` is skewed to the right indicating the presence of outliers.
+
+There are many ways to detect outliers:
+
+-   By calculating the skewness of the distribution and establishing a threshold
+-   By visualizing the distribution of features
+-   And more advanced methods more outlier detection
+-   Using the IQR for the feature.
+  
+Above @lst-skewness we applied the first two. We can confirm that with the last method:
+
+For `DiscountedPrice`, we have:
+
+-   min = 8
+-   25% = 58
+-   50% = 103
+-   75% = 149.98
+-   100% = 270
+  
+By finding the difference between each interval, we can deduce from where outliers occur:
+
+-   25% - min = 50
+-   50% - 25% = 45
+-   75% - 50% = 46
+-   100% - 75%= `120`
+
+:::{.callout-note title="Outliers Insight"}
+
+-   We notice a jump from 75th percentile to the 100th depicting outliers. 
+-   75th percentile + 50 = ~200. Anything above `200` in the `DiscountedPrice` is an outlier.
+-   Though a mild skewness (0.35) is observed, we will attempt to deal with it.
+:::
+
+**Experiment with methods**
+
+```{python}
+#|code-fold: true
+#| label: outlier-analysis
+
+transformations = {}
+
+# Original
+transformations['Original'] = df['DiscountedPrice']
+
+# Log transformation
+transformations['Log'] = np.log1p(df['DiscountedPrice'])
+
+# Square root
+transformations['Sqrt'] = np.sqrt(df['DiscountedPrice'])
+
+# Box-Cox
+transformations['BoxCox'], _ = boxcox(df['DiscountedPrice'] + 1)
+
+# Yeo-Johnson
+pt = PowerTransformer(method='yeo-johnson', standardize=False)
+transformations['YeoJohnson'] = pt.fit_transform(df[['DiscountedPrice']]).flatten()
+
+# Compare skewness
+results = []
+for name, data in transformations.items():
+    skew_val = stats.skew(data)
+    results.append({'Transformation': name, 'Skewness': skew_val})
+
+comparison_df = pd.DataFrame(results)
+print(comparison_df.round(3))
+
+# Find the best transformation (closest to 0)
+best_transform = comparison_df.loc[comparison_df['Skewness'].abs().idxmin(), 'Transformation']
+print(f"\nBest transformation: {best_transform}")
+```
+
+
+**Final implementation**
+
+```{python}
+#|code-fold: true
+#| label: final-implementation
+
+# Apply Box-Cox and store the Lambda value 
+df['DiscountedPriceBoxCox'], lambda_val = boxcox(df['DiscountedPrice'] + 1)
+
+# Drop original column
+df = df.drop('DiscountedPrice', axis=1)
+
+
+# Update your revenue calculation with transformed prices
+df['RevenueAbs'] = np.where(df['ClearanceFlag'] == 'No', 
+                           df['QuantityAbs'] * df['OriginalPrice'],
+                           df['QuantityAbs'] * df['DiscountedPriceBoxCox'])
+
+print(f"New skewness: {stats.skew(df['DiscountedPriceBoxCox']):.3f}")
+df.head(5)
+```
+
+
+:::{.callout-note title="Summary of Data Preparation"}
+
+-   We loaded our dataset and check its observations and features 
+-   We made sure there were no missing values nor any duplicated values 
+-   We created new features to enrich our dataset and make it more consistent for further analysis.
+-   We converted `Date` and transformed the `DiscountedPrice` feature to handle the format for the former and outliers for the latter.
+:::
+
+# 3. Exploratory Data Analysis
+
+We explore the dataset in depth and answer business questions.
+
+Let us have a look at the updated dataset's features:
+
+```{python}
+#|code-fold: true
+#| label: final-implementation-columns
+
+df.columns
+```
+
+**Sales information**
+
+```{python}
+#|code-fold: true
+#| label: data-overview
+
+print(f"Sales transactions: {df[df['IsReturn'] == 0].shape[0]:,}")
+print(f"Return transactions: {df[df['IsReturn'] == 1].shape[0]:,}")
+print(f"Return rate: {df['IsReturn'].mean():.3f}")
+```
+
+:::{.callout-note title="Sales Insights"}
+-   `Sales` account for ~ 94.5% of all transactions while `returns` for ~ 5.1%.
+:::
+
+## 3.1. Top performing 
+
+Because we focus on units sold and revenue, we filter to only use items that were not returned.
+
+```{python}
+#|code-fold: true
+#| label: data-filter
+
+df_sales = df[df['IsReturn'] == 0].copy()
+print(f"\nAnalyzing {df_sales.shape[0]:,} sales transactions (excluding returns)")
+```
+
+### A. Category feature
+
+**Units Sold Analysis (Sales Only)**
+
+```{python}
+#|code-fold: true
+#| label: units-sold
+
+units_by_category = df_sales.groupby('Category')['QuantityAbs'].sum().sort_values(ascending=False)
+units_by_brand = df_sales.groupby('Brand')['QuantityAbs'].sum().sort_values(ascending=False).head(15)
+units_by_supplier = df_sales.groupby('Supplier')['QuantityAbs'].sum().sort_values(ascending=False).head(15)
+
+
+category_units_df = units_by_category.reset_index()
+category_units_df.columns = ['Category', 'Units']
+
+brand_units_df = units_by_brand.reset_index()
+brand_units_df.columns = ['Brand', 'Units']
+
+supplier_units_df = units_by_supplier.reset_index()
+supplier_units_df.columns = ['Supplier', 'Units']
+
+print("Top 5 Categories by units sold:")
+for i, (cat, units) in enumerate(units_by_category.head().items(), 1):
+    print(f"{i}. {cat}: {units:,} units")
+
+print("\nTop 5 Brands by units sold:")
+for i, (brand, units) in enumerate(units_by_brand.head().items(), 1):
+    print(f"{i}. {brand}: {units:,} units")
+
+print("\nTop 5 Suppliers by units sold:")
+for i, (brand, units) in enumerate(units_by_supplier.head().items(), 1):
+    print(f"{i}. {brand}: {units:,} units")
+
+```
+
+**Revenue Generated Analysis (Sales Only)**
+
+```{python}
+#|code-fold: true
+#| label: revenue-made
+
+revenue_by_category = df_sales.groupby('Category')['RevenueFinal'].sum().sort_values(ascending=False)
+revenue_by_brand = df_sales.groupby('Brand')['RevenueFinal'].sum().sort_values(ascending=False).head(15)
+revenue_by_supplier = df_sales.groupby('Supplier')['RevenueFinal'].sum().sort_values(ascending=False).head(15)
+
+
+category_revenue_df = revenue_by_category.reset_index()
+category_revenue_df.columns = ['Category', 'Revenue']
+
+
+brand_revenue_df = revenue_by_brand.reset_index()
+brand_revenue_df.columns = ['Brand', 'Revenue']
+
+supplier_revenue_df = revenue_by_supplier.reset_index()
+supplier_revenue_df.columns = ['Supplier', 'Revenue']
+
+
+
+print("\nTOP 5 Categories by Revenue:")
+for i, (cat, rev) in enumerate(revenue_by_category.head().items(), 1):
+    print(f"{i}. {cat}: R {rev:,.2f}")
+
+
+print("\nTOP 5 Brands by Revenue:")
+for i, (brand, rev) in enumerate(revenue_by_brand.head().items(), 1):
+    print(f"{i}. {brand}: R {rev:,.2f}")
+
+
+print("\nTOP 5 Suppliers by Revenue:")
+for i, (brand, rev) in enumerate(units_by_supplier.head().items(), 1):
+    print(f"{i}. {brand}: R {rev:,.2f}")
+```
+
+
+```{python}
+#| code-fold: true
+#| label: category-units
+
+p1 = (ggplot(category_units_df, aes(x='reorder(Category, Units)', y='Units')) +
+      geom_col(fill='skyblue', alpha=0.8) +
+      coord_flip() +
+      labs(title='Units Sold by Category', 
+           x='Category', 
+           y='Total Units Sold') +
+      theme_minimal() +
+      theme(figure_size=(6, 4)))
+
+p1
+
+```
+
+
+```{python}
+#| code-fold: true
+#| label: category-revenue
+
+
+p2 = (ggplot(category_revenue_df, aes(x='reorder(Category, Revenue)', y='Revenue')) +
+      geom_col(fill='lightcoral', alpha=0.8) +
+      coord_flip() +
+      labs(title='Revenue by Category', 
+           x='Category', 
+           y='Total Revenue (R)') +
+      theme_minimal() +
+      theme(figure_size=(6, 4)))
+      
+p2
+```
+
+
+:::{.callout-note title="Category feature Insights"}
+-   `Category` selling the most units does not always mean more revenue.
+-   **accessories** category have been sold the most but **kids** category generated the most.
+-   Category have sold more or less the same quantity and generated more or less the same revenue, no major runner.
+:::
+
+### B. Supplier feature
+
+```{python}
+#| code-fold: true
+#| label: supplier-units
+
+p3 = (ggplot(supplier_units_df, aes(x='reorder(Supplier, Units)', y='Units')) +
+      geom_col(fill='skyblue', alpha=0.8) +
+      coord_flip() +
+      labs(title='Units Sold by Supplier', 
+           x='Supplier', 
+           y='Total Units Sold') +
+      theme_minimal() +
+      theme(figure_size=(6, 4)))
+
+p3
+```
+
+
+```{python}
+#| code-fold: true
+#| label: supplier-revenue
+
+
+p4 = (ggplot(supplier_revenue_df, aes(x='reorder(Supplier, Revenue)', y='Revenue')) +
+      geom_col(fill='lightcoral', alpha=0.8) +
+      coord_flip() +
+      labs(title='Revenue by Supplier', 
+           x='Supplier', 
+           y='Total Revenue (R)') +
+      theme_minimal() +
+      theme(figure_size=(6, 4)))
+      
+p4
+```
+
+:::{.callout-note title="Supplier feature Insights"}
+-   **Asos** largely sold the most units and generated the most revenue.
+-   Followed by **Nordstrom**, **Bloomingdale's**, and **Macy's** which  sold more or less the same quantity of units and generated more or less the same amount.
+:::
+
+### C. Brand feature
+
+```{python}
+#| code-fold: true
+#| label: brand-units
+
+p5 = (ggplot(brand_units_df, aes(x='reorder(Brand, Units)', y='Units')) +
+      geom_col(fill='skyblue', alpha=0.8) +
+      coord_flip() +
+      labs(title='Units Sold by Brand', 
+           x='Brand', 
+           y='Total Units Sold') +
+      theme_minimal() +
+      theme(figure_size=(6, 4)))
+
+p5
+```
+
+
+```{python}
+#| code-fold: true
+#| label: brand-revenue
+
+p6 = (ggplot(brand_revenue_df, aes(x='reorder(Brand, Revenue)', y='Revenue')) +
+      geom_col(fill='lightcoral', alpha=0.8) +
+      coord_flip() +
+      labs(title='Revenue by Brand', 
+           x='Brand', 
+           y='Total Revenue (R)') +
+      theme_minimal() +
+      theme(figure_size=(6, 4)))
+      
+p6
+```
+
+:::{.callout-note title="Brand feature Insights"}
+-  **Tommy Hilfiger** is the op selling brand in both units and revenue, followed by **DKNY** in revenue but 3rd in units sold. 
+-  Note that most brand have sold more than 28000 units and have all generated more than R4,000,000.00.
+:::
+
+## 3.2. Discount effect on top brands & suppliers
+
+Find top brands and suppliers
+
+```{python}
+#| code-fold: true
+#| label: top-brand-supplier
+
+# Get top brands & suppliers
+top_brands = units_by_brand.head(10).index.tolist()
+top_suppliers = units_by_supplier.head(10).index.tolist()
+
+# Extract data from sales based on top performing
+discount_brand_data = df_sales[df_sales['Brand'].isin(top_brands)].copy()
+discount_supplier_data = df_sales[df_sales['Supplier'].isin(top_suppliers)].copy()
+
+# summary for discounted or not
+discount_summary = df_sales.groupby('ClearanceFlag').agg({
+    'QuantityAbs': ['sum', 'mean'],
+    'RevenueFinal': ['sum', 'mean'],
+    'DiscountPercentage': 'mean'
+}).round(2)
+
+# discount data for scatter plot
+discount_scatter_df = df_sales[df_sales['DiscountPercentage'] > 0].sample(min(5000, len(df_sales[df_sales['DiscountPercentage'] > 0]))).copy()
+
+# discount distribution
+discount_dist_df = df_sales[df_sales['DiscountPercentage'] > 0].copy()
+
+
+
+print("Discount Impact Summary:")
+print("Without Discount:")
+print(f"  - Average units per transaction: {discount_summary.loc['No', ('QuantityAbs', 'mean')]:.2f}")
+print(f"  - Total units sold: {discount_summary.loc['No', ('QuantityAbs', 'sum')]:,}")
+
+print("With Discount:")
+print(f"  - Average units per transaction: {discount_summary.loc['Yes', ('QuantityAbs', 'mean')]:.2f}")
+print(f"  - Total units sold: {discount_summary.loc['Yes', ('QuantityAbs', 'sum')]:,}")
+print(f"  - Average discount percentage: {discount_summary.loc['Yes', ('DiscountPercentage', 'mean')]:.1f}%")
+```
+
+
+
+```{python}
+#| code-fold: true
+#| label: discount-distribution-plot
+
+# distribution of discount
+p7 = (ggplot(discount_dist_df, aes(x='DiscountPercentage')) +
+      geom_histogram(bins=30, fill='green', alpha=0.7) +
+      labs(title='Distribution of Discount Percentages', 
+           x='Discount Percentage (%)', 
+           y='Frequency') +
+      theme_minimal() +
+      theme(figure_size=(5, 3)))
+
+p7
+```
+
+
+**Brand Discount % and units sold**
+
+```{python}
+#| code-fold: true
+#| label: brand-discount-units-plot
+
+# Group by Brand
+brand_summary = (
+    discount_dist_df.groupby('Brand')
+    .agg(TotalUnitsSold=('QuantityAbs', 'sum'), AvgDiscountPercent=('DiscountPercentage', 'mean'))
+    .reset_index()
+)
+
+# Select top 10 brands
+top_brands = brand_summary.nlargest(10, 'TotalUnitsSold')
+
+p8 = (
+    ggplot(top_brands, aes(x='AvgDiscountPercent', y='TotalUnitsSold', label='Brand')) +
+    geom_point(color='dodgerblue', size=4, alpha=0.8) +
+    geom_text(nudge_y=5, size=8) +
+    labs(
+        title='Top 10 Brands: Discount % vs. Units Sold',
+        x='Average Discount Percent',
+        y='Total Units Sold'
+    ) +
+    theme_minimal() +
+    theme(figure_size=(6, 5))
+)
+p8
+```
+
+:::{.callout-note title="Brand discount % and Units"}
+-   `Tommy Hilfiger` has sold the most units with an average discount while
+`Ralph Lauren` is second best with highest discount percentage.
+-   We also note that `Zara`, `Nike`, and `Under Amour` have the same average discount percentage but have a large disparity in the number of units sold.
+:::
+
+**Supplier Discount % and units sold**
+
+```{python}
+#| code-fold: true
+#| label: supplier-discount-units-plot
+
+# Group by Supplier
+supplier_summary = (
+    discount_dist_df.groupby('Supplier')
+    .agg(TotalUnitsSold=('QuantityAbs', 'sum'), AvgDiscountPercent=('DiscountPercentage', 'mean'))
+    .reset_index()
+)
+
+# Select top 10 suppliers
+top_suppliers = supplier_summary.nlargest(10, 'TotalUnitsSold')
+
+# Select top 10 brands
+top_brands = brand_summary.nlargest(10, 'TotalUnitsSold')
+
+p9 = (
+    ggplot(top_suppliers, aes(x='AvgDiscountPercent', y='TotalUnitsSold', label='Supplier')) +
+    geom_point(color='forestgreen', size=4, alpha=0.8) +
+    geom_text(nudge_y=5, size=8) +
+    labs(
+        title='Top 10 Suppliers: Discount % vs. Units Sold',
+        x='Average Discount Percent',
+        y='Total Units Sold'
+    ) +
+    theme_minimal() +
+    theme(figure_size=(6, 5))
+)
+p9
+```
+
+:::{.callout-note title="Supplier discount % and Units"}
+-   `Macy's`, `Nordstrom`, and `Bloomingda` have sold almost the same number of units but the two latter have a very high discount percentage compared to the first.
+-   Discount percentage does not drive sales.
+:::
+
+**Top Brand discount analysis**
+
+```{python}
+#| code-fold: true
+#| label: brand-discount-analysis
+
+
+brand_discount_summary = discount_brand_data.groupby(['Brand', 'ClearanceFlag']).agg({
+    'QuantityAbs': 'sum'
+}).reset_index()
+
+p9 = (ggplot(brand_discount_summary, aes(x='Brand', y='QuantityAbs', fill='ClearanceFlag')) +
+      geom_col(position='dodge') +
+      coord_flip() +
+      labs(title='Sales Volume: Discounted vs Non-Discounted (Top 10 Brands)', 
+           x='Brand', 
+           y='Total Units Sold',
+           fill='Discount Applied') +
+      theme_minimal() +
+      theme(figure_size=(6.5, 6)))
+
+p9
+```
+
+
+
+**Top Supplier discount analysis**
+
+```{python}
+#| code-fold: true
+#| label: supplier-discount-analysis
+
+supplier_discount_summary = discount_supplier_data.groupby(['Supplier', 'ClearanceFlag']).agg({
+    'QuantityAbs': 'sum'
+}).reset_index()
+
+p10 = (ggplot(supplier_discount_summary, aes(x='Supplier', y='QuantityAbs', fill='ClearanceFlag')) +
+      geom_col(position='dodge') +
+      coord_flip() +
+      labs(title='Sales Volume: Discounted vs Non-Discounted (Top 7 Supplier)', 
+           x='Supplier', 
+           y='Total Units Sold',
+           fill='Discount Applied') +
+      theme_minimal() +
+      theme(figure_size=(6.5, 5)))
+
+p10
+```
+
+:::{.callout-note title="Discount Insights"}
+-   `discount percentage` is normally distributed around a 30% discount for products indicating that most discounted units are sold at an average discount, thus when a brand or supplier sells a lot, it is not based on the discount applied.
+-   **Asos** has the most units sold with and without discount applied. -   `Brands` tend to sell same volume of discounted units ( ~ 4800).
+:::
+
+## 3.3. Average turnover
+
+```{python}
+#| code-fold: true
+#| label: avg-sales
+
+# Calculate weekly sales per store (sales only)
+weekly_sales = df_sales.groupby(['StoreID', 'WeekOfYear'])['QuantityAbs'].sum().reset_index()
+avg_weekly_turnover = weekly_sales.groupby('StoreID')['QuantityAbs'].mean().sort_values(ascending=False)
+
+
+print("Stores performance KPI:")
+print(f"-   Best performing store: {avg_weekly_turnover.index[0]} ({avg_weekly_turnover.iloc[0]:.1f} units/week)")
+print(f"-   Average weekly turnover across all stores: {avg_weekly_turnover.mean():.1f} units/week")
+print(f"-   Median weekly turnover: {avg_weekly_turnover.median():.1f} units/week")
+print(f"-   Standard deviation: {avg_weekly_turnover.std():.1f} units/week")
+
+print("\nTop 5 Stores by weekly turnover:")
+for i, (store, turnover) in enumerate(avg_weekly_turnover.head(5).items(), 1):
+    print(f"{i}. Store {store}: {turnover:.1f} units/week")
+```
+
+
+Now we check some plots
+
+```{python}
+#| code-fold: true
+#| label: plot-stores-sales
+
+
+# Prepare data for store analysis
+turnover_df = avg_weekly_turnover.reset_index()
+turnover_df.columns = ['StoreID', 'AvgWeeklyTurnover']
+
+
+p11 = (ggplot(turnover_df, aes(x='AvgWeeklyTurnover')) +
+      geom_histogram(bins=30, fill='purple', alpha=0.7) +
+      labs(title='Distribution of Average Weekly Turnover by Store', 
+           x='Average Weekly Units Sold', 
+           y='Number of Stores') +
+      theme_minimal() +
+      theme(figure_size=(7, 5)))
+
+p11
+```
+
+
+```{python}
+#| code-fold: true
+#| label: plot-top-stores
+
+stores_df = turnover_df.head(10)
+
+
+# Stores Performance
+p12 = (ggplot(stores_df, aes(x='reorder(StoreID, AvgWeeklyTurnover)', y='AvgWeeklyTurnover')) +
+      geom_col(fill='teal', alpha=0.8) +
+      coord_flip() +
+      labs(title='Stores by Average Weekly Turnover', 
+           x='Store ID', 
+           y='Average Weekly Units Sold') +
+      theme_minimal() +
+      theme(figure_size=(6, 5)))
+
+p12
+```
+
+
+**Weekly trend**
+
+```{python}
+#| code-fold: true
+#| label: store-week-trend
+
+weekly_trend = df_sales.groupby('WeekOfYear')['QuantityAbs'].sum().reset_index()
+weekly_trend['WeekOfYear'] = weekly_trend['WeekOfYear'].astype(int)
+
+
+p13 = (ggplot(weekly_trend, aes(x='WeekOfYear', y='QuantityAbs')) +
+       geom_line(color='red', size=1) +
+       geom_point(color='red', size=2) +
+       labs(title='Weekly Sales Trend Across All Stores', 
+            x='Week of Year', 
+            y='Total Units Sold') +
+       theme_minimal() +
+       theme(figure_size=(12, 6)))
+
+p13
+```
+
+
+:::{.callout-note collapse="true" title="Stores Insights"}
+-   `Stores` sell on average 1424 units per week and only varies by **8** units indicating they sell more or less the same quantity.
+:::
+
+## 3.4. Clearance Impact
+
+**Sales only**
+
+```{python}
+#| code-fold: true
+#| label: clearance-impact
+
+# Sales only
+clearance_sales_analysis = df_sales.groupby('ClearanceFlag').agg({
+    'QuantityAbs': ['sum', 'mean'],
+    'RevenueFinal': ['sum', 'mean'],
+}).round(2)
+
+
+
+
+print("Clearance vs Non-Clearance (Sales Only):")
+print(clearance_sales_analysis)
+
+```
+
+**Returns and Sales**
+
+```{python}
+#| code-fold: true
+#| label: clearance-return-sales
+
+# Sales and returns transactions
+clearance_return_analysis = df.groupby('ClearanceFlag').agg({
+    'IsReturn': ['sum', 'mean'],
+    'RevenueFinal': ['sum', 'mean'],
+    'QuantityAbs': 'sum'
+}).round(3)
+
+print("Sales and returns")
+print(clearance_return_analysis)
+
+print("\nRETURN ANALYSIS (All Transactions):")
+print("Non-Clearance:")
+print(f"  - Return rate: {clearance_return_analysis.loc['No', ('IsReturn', 'mean')]:.3f}")
+print(f"  - Total return transactions: {clearance_return_analysis.loc['No', ('IsReturn', 'sum')]:,.0f}")
+
+print("Clearance:")
+print(f"  - Return rate: {clearance_return_analysis.loc['Yes', ('IsReturn', 'mean')]:.3f}")
+print(f"  - Total return transactions: {clearance_return_analysis.loc['Yes', ('IsReturn', 'sum')]:,.0f}")
+```
+
+**Visualising clearances**
+
+```{python}
+#| code-fold: true
+#| label: clearance-return-sales-plots
+
+clearance_sales_summary = df_sales.groupby('ClearanceFlag').agg({
+    'QuantityAbs': 'sum',
+    'RevenueFinal': ['sum', 'mean']
+}).reset_index()
+
+
+clearance_sales_summary.columns = ['ClearanceFlag', 'TotalUnits', 'TotalRevenue', 'AvgRevenue']
+clearance_sales_summary['ClearanceStatus'] = clearance_sales_summary['ClearanceFlag'].map({False: 'Non-Clearance', True: 'Clearance'})
+
+return_rates = df.groupby('ClearanceFlag')['IsReturn'].mean().reset_index()
+return_rates['ClearanceStatus'] = return_rates['ClearanceFlag'].map({False: 'Non-Clearance', True: 'Clearance'})
+
+p16 = (ggplot(df_sales, aes(x='factor(ClearanceFlag)', y='RevenueFinal')) +
+       geom_boxplot(fill=['lightblue', 'lightcoral'], alpha=0.7) +
+       labs(title='Revenue Distribution by Clearance Status', 
+            x='Clearance Status', 
+            y='Revenue per Transaction') +
+       theme_minimal() +
+       theme(figure_size=(8, 6)))
+
+print("Clearance vs Non-Clearance")
+p16
+```
+
+
+
+:::{.callout-note collapse="true" title="Clearance Impact Insights"}
+-   Faro has sold more items at normal price (227842 units for R36,373,670.00) than at discount price ( 56837 units for R4,332,340.98).
+-   The return rates for items by their clearance status is roughly the same, 5.1% when sold at not price and 4.9% when sold at discounted price indicating that clearance does not impact the return.
+:::
+
+## 3.5. Customer behavior
+
+```{python}
+#| code-fold: true
+#| label: customer-behavior
+
+
+regional_sales_analysis = df_sales.groupby('Region').agg({
+    'CustomerID': 'nunique',
+    'QuantityAbs': ['sum', 'mean'],
+    'RevenueFinal': ['sum', 'mean'],
+    'DiscountPercentage': 'mean',
+    'TransactionID': 'count'
+}).round(2)
+
+regional_return_analysis = df.groupby('Region')['IsReturn'].mean()
+
+print("Regional Sales KPI:")
+print(regional_sales_analysis)
+
+print("\nRegional Returns KPI:")
+for region, rate in regional_return_analysis.items():
+    print(f"{region}: {rate:.3f}")
+```
+
+**Regional metrics**
+
+```{python}
+#| code-fold: true
+#| label: customer-behavior-summary
+
+regional_summary = df_sales.groupby('Region').agg({
+    'CustomerID': 'nunique',
+    'TransactionID': 'count',
+    'RevenueFinal': 'sum',
+    'QuantityAbs': 'sum'
+}).reset_index()
+
+regional_summary['TransactionsPerCustomer'] = regional_summary['TransactionID'] / regional_summary['CustomerID']
+regional_summary['RevenuePerCustomer'] = regional_summary['RevenueFinal'] / regional_summary['CustomerID']
+regional_summary['UnitsPerCustomer'] = regional_summary['QuantityAbs'] / regional_summary['CustomerID']
+
+# Add return rates
+regional_summary = regional_summary.merge(
+    regional_return_analysis.reset_index().rename(columns={'IsReturn': 'ReturnRate'}),
+    on='Region'
+)
+
+print("\nCustomer-based Regional KPI:")
+print(regional_summary[['Region', 'CustomerID', 'TransactionsPerCustomer', 'RevenuePerCustomer', 'UnitsPerCustomer', 'ReturnRate']])
+```
+
+:::{.callout-note collapse="true" title="Customer behavior Insights"}
+-   `Regions` have roughly the same number of unique customers and generating the same revenue.
+-   `Regions` have the same number of returns items indicating that no particular region is underperforming.
+:::
+
+
+# 4. Predictive task
+
+The goal is to predict whether a given product will be sold on clearance or not.
+
+```{python}
+#| code-fold: true
+#| label: current-data
+
+df.info()
+```
+
+## 4.1. Target encoding
+
+```{python}
+#| code-fold: true
+#| label: target-encoding
+
+# Convert Target feature into Integer
+
+df["ClearanceFlag"] = (df["ClearanceFlag"] == 'Yes').astype(int)
+
+```
+
+## 4.2. Feature Selection
+
+Feature selection is a very important step in machine learning, just like the saying `garbage in, garbage out`, feeding the wrong features may negatively impact the model performance.
+
+There are numerous way to select what features, recursive selection, mutual information, to more advanced methods making use of evolutionary algorithms such as particle swarm optimization or grey wolf.
+
+In this project, we will follow a simple `mutual information(MI)`, a concept from information theory telling us how much we can learn from a feature if we know the value of of another. 
+
+**Data Splitting**
+
+```{python}
+#| code-fold: true
+#| label: data-splitting
+
+
+# Split
+df_train_full, df_test = train_test_split(df, test_size=0.2, random_state=42)
+df_train, df_val = train_test_split(df_train_full, test_size=0.25, random_state=42)
+
+len(df_train),len(df_val),len(df_test)
+```
+
+**Remove target feature**
+
+```{python}
+#| code-fold: true
+#| label: remove-target
+
+
+## ---- Extract and create "ClearanceFlag" for the different splits
+y_train = df_train["ClearanceFlag"].values
+y_val = df_val["ClearanceFlag"].values
+y_test = df_test["ClearanceFlag"].values
+
+### ------ Delete "ClearanceFlag"from the splits
+del df_train['ClearanceFlag']
+del df_val['ClearanceFlag']
+del df_test['ClearanceFlag']
+```
+
+**Numerical and Categorical features**
+
+We drop out some features (TransactionID, ProductID, customerID) as they will not add value to our model.
+
+```{python}
+#| code-fold: true
+#| label: df-head
+
+df.Year.head(5)
+
+df.Year.describe()
+```
+We remove `Year` as it does not add any value.
+
+**Numerical**
+
+```{python}
+#| code-fold: true
+#| label: numerical-corr
+
+
+numerical_cols = ['OriginalPrice', 'QuantityAbs','RevenueAbs', 'RevenueFinal', 'Month', 'WeekOfYear', 'DayOfWeek', 'DiscountPercentage','DiscountedPriceBoxCox']
+
+
+df[numerical_cols].corrwith(df.ClearanceFlag).to_frame('correlation')
+```
+
+**Note:**
+
+-   `DiscountPercentage` has a 0.74 correlation with `ClearanceFlag` indicating that higher discount percentage likely to sell the product at clearance which is obvious.
+-   `RevenueAbs` (-0.47) and `RevenueFinal` (-0.25) indicate that when revenue increases, the item is unlikely to have been sold at clearance.
+-   Naturally increasing the `DiscountedPrice` will result in the unlikelihood of the item being sold at clearance.
+
+
+**Categorical**
+
+```{python}
+#| code-fold: true
+#| label: categorical-MI
+
+
+
+# Convert `IsReturn` into a categorical variable
+df["IsReturn"] = df["IsReturn"].astype("category")
+
+categorical_cols = ['StoreID', 'Brand', 'Supplier', 'Category', 'Subcategory', 'Type', 'Region','IsReturn','TransactionType']
+
+
+
+### ----- Define the function to calculate the M.I on the training set ONLY
+def calculate_mi(series):
+    return mutual_info_score(series, y_train)
+
+#### ---- Calculate MI between 'y' and the categorical variables of the training set ONLY 
+df_mi = df_train[categorical_cols].apply(calculate_mi)
+df_mi = df_mi.sort_values(ascending=False).to_frame(name='MI')
+
+print('Below are the variable with highest M.I score:')
+display(df_mi.head(15))
+```
+
+**Note:**
+
+-   Knowing the `Type` of the product provides more information on whether or not it will be sold at clearance.
+-   `TransactionType` and `IsReturn` values are not very informative.
+-   `Brand`, `StoreID`, and `Subcategory` values also provide valuable information on the target feature status.
+  
+
+**Selected Fearures**
+
+```{python}
+#| code-fold: true
+#| label: selected-features
+
+
+# Based on correlation
+selected_num = ['OriginalPrice', 'QuantityAbs','RevenueAbs', 'RevenueFinal', 'DiscountPercentage','DiscountedPriceBoxCox']
+
+# Based on MI
+selected_cat = ['StoreID', 'Brand', 'Supplier', 'Category', 'Subcategory', 'Type', 'Region']
+
+df_train[selected_num + selected_cat]
+df_val[selected_num + selected_cat]
+df_test[selected_num + selected_cat]
+
+```
+
+
+## 4.3. Cross validation
+
+```{python}
+#| code-fold: true
+#| label: cross-validation
+
+
+# splits = 5 as we have a lot of data
+cv = StratifiedKFold(n_splits=5, shuffle=True, random_state=42)
+```
+
+
+## 4.4. Train
+
+We first build a base model then we try to improve upon it. For a better understanding, I will not make use of third-party package like `optuna` or `hyperopt`.
+
+### 4.4.1. Base Logistic regression
+
+```{python}
+#| code-fold: true
+#| label: base-LR
+
+## ----- Initialize the encoder: ------
+dv = DictVectorizer(sparse=False)
+
+## ---- Apply the transformation on the training set
+
+train_dict = df_train[selected_num + selected_cat].to_dict(orient='records')
+X_train = dv.fit_transform(train_dict)
+
+## ---- Apply the transformation on the validation set (for evaluation)
+val_dict = df_val[selected_num + selected_cat].to_dict(orient='records')
+X_val = dv.transform(val_dict)
+
+#### Training on Logistic regression
+
+model = LogisticRegression(solver='liblinear', C=1.0, max_iter=1000, random_state = 42)
+model.fit(X_train, y_train)
+
+
+# Predict on validation set
+y_pred = model.predict(X_val)
+
+# Compute metrics
+accuracy = accuracy_score(y_val, y_pred)
+precision = precision_score(y_val, y_pred, average='weighted')  
+recall = recall_score(y_val, y_pred, average='weighted')
+
+# Print results
+print("Base logistic regression")
+print(f"Validation Accuracy : {accuracy:.4f}")
+print("Classification report on baseline LR model:")
+print(classification_report(y_val, y_pred))
+```
+
+:::{.callout-warning title="Overfitting"}
+
+-   We noticed earlier a very high correlation between certain features to the clearance status. 
+This results in a model learning for example that whenever `DiscountPercentage` is high, predict `ClearanceFlag`=Yes.
+-   A feature like `Revenue` is a target-leaking feature as it was engineered based on the `ClearanceFlag` status.
+
+**Solution**: Drop any feature that is engineered from the target feature and observe the result. 
+:::
+
+
+```{python}
+#| code-fold: true
+#| label: base-LR-retraining
+
+filtered_numerical_cols = ['OriginalPrice', 'QuantityAbs', 'Month', 'WeekOfYear', 'DayOfWeek']
+selected_cat = ['StoreID', 'Brand', 'Supplier', 'Category', 'Subcategory', 'Type', 'Region', 'IsReturn', 'TransactionType']
+
+# DictVectorizer encoding
+dv = DictVectorizer(sparse=False)
+train_dict = df_train[filtered_numerical_cols + selected_cat].to_dict(orient='records')
+X_train = dv.fit_transform(train_dict)
+
+# DictVectorizer encoding (val)
+val_dict = df_val[filtered_numerical_cols + selected_cat].to_dict(orient='records')
+X_val = dv.transform(val_dict)
+
+
+
+# Train logistic regression
+model = LogisticRegression(solver='liblinear', C=1.0, max_iter=1000, random_state=42)
+model.fit(X_train, y_train)
+
+# Predict on validation
+y_pred = model.predict(X_val)
+
+# Evaluate performance
+accuracy = accuracy_score(y_val, y_pred)
+
+
+print("Logistic Regression (Leakage-Free Features)")
+print(f"  Accuracy : {accuracy:.4f}")
+print("\nClassification Report:")
+print(classification_report(y_val, y_pred))
+```
+
+
+
+:::{.callout-warning title="Logistic Regression Base model"}
+
+-   No overfitting, that is a good sign.
+-   The base model never predicts class 1 (Clearance) as the accuracy is 80% which is also the percentage of observations that were sold at normal price.
+-   Recall for class 1 = 0 indicating all actual clearance items are missed.
+-   Precision for class 1 = 0 indicating when it predicts class 1 (which it doesn't), it's always wrong.
+-   Macro avg: Treats both classes equally which exposes failure on class 1.
+-   Weighted avg: Dominated by class 0 which looks better but hides the issue.
+  
+
+**Possible solutions:**
+    -   class_weight='balanced' in Logistic Regression to penalize misclassification of rare class more.
+    -   Try a sampling technique such oversampling or undersampling or SMOTE.
+    -   Use a tree-based models like decision tree.
+:::
+
+
+### 4.4.2. Logistic regression with Class Weight
+
+
+```{python}
+#| code-fold: true
+#| label: LR-class-weight
+
+filtered_numerical_cols = ['OriginalPrice', 'QuantityAbs', 'Month', 'WeekOfYear', 'DayOfWeek']
+selected_cat = ['StoreID', 'Brand', 'Supplier', 'Category', 'Subcategory', 'Type', 'Region', 'IsReturn', 'TransactionType']
+
+# --- Encoding with DictVectorizer ---
+dv = DictVectorizer(sparse=False)
+
+# Train encoding
+train_dict = df_train[filtered_numerical_cols + selected_cat].to_dict(orient='records')
+X_train = dv.fit_transform(train_dict)
+
+# Validation encoding
+val_dict = df_val[filtered_numerical_cols + selected_cat].to_dict(orient='records')
+X_val = dv.transform(val_dict)
+
+
+# --- Train Logistic Regression with class_weight ---
+model = LogisticRegression(solver='liblinear',
+                           C=1.0,
+                           max_iter=1000,
+                           random_state=42,
+                           class_weight='balanced')
+
+model.fit(X_train, y_train)
+
+# --- Predict & Evaluate ---
+y_pred = model.predict(X_val)
+
+accuracy = accuracy_score(y_val, y_pred)
+precision = precision_score(y_val, y_pred, average='macro')
+recall = recall_score(y_val, y_pred, average='macro')
+
+print(" Logistic Regression with class_weight='balanced'")
+print(f"  Accuracy : {accuracy:.4f}")
+print("\nClassification Report:")
+print(classification_report(y_val, y_pred))
+```
+
+
+:::{.callout-warning title="LR Underfitting"}
+
+-   Imbalance remains an issue: Even though class weighting was used, class 1 (the minority class) is still poorly predicted.
+-   High precision on class 0: Model is very good at avoiding false positives for class 0.
+-   Low precision on class 1: Only 20% of predicted positives are truly class 1 → lots of false positives for minority class.
+-   Recall for class 1 is 0.49: It recovers ~49% of true class 1 cases → improved sensitivity, but at a precision cost.
+-   Overall accuracy is misleading: 51% accuracy is barely better than random guessing because the class distribution is imbalanced.
+:::
+
+### 4.4.3. Decision tree
+
+```{python}
+#| code-fold: true
+#| label: decision-tree
+
+# Define hyperparameters to tune for Decision Tree
+max_depth_values = [3, 5, 10, None]
+min_samples_leaf_values = [1, 5, 10]
+
+# Prepare dictionary to store results
+results = {}
+
+# Sampling methods dict
+sampling_methods = {
+    'SMOTE': SMOTE(random_state=42),
+    'Undersampling': RandomUnderSampler(random_state=42),
+    'Oversampling': RandomOverSampler(random_state=42)
+}
+
+for sampling_name, sampler in sampling_methods.items():
+    print(f"\n--- Sampling: {sampling_name} ---")
+
+    # Apply sampling on training data
+    X_resampled, y_resampled = sampler.fit_resample(X_train, y_train)
+
+    best_f1 = 0
+    best_params = None
+    best_model = None
+
+    # Hyperparameter tuning loop
+    for max_depth in max_depth_values:
+        for min_samples_leaf in min_samples_leaf_values:
+
+            dt = DecisionTreeClassifier(
+                max_depth=max_depth,
+                min_samples_leaf=min_samples_leaf,
+                class_weight='balanced',
+                random_state=42
+            )
+
+            dt.fit(X_resampled, y_resampled)
+            y_pred = dt.predict(X_val)
+
+            # Evaluate with macro F1 
+            from sklearn.metrics import f1_score
+            f1 = f1_score(y_val, y_pred, average='macro')
+
+            if f1 > best_f1:
+                best_f1 = f1
+                best_params = (max_depth, min_samples_leaf)
+                best_model = dt
+
+    # Final evaluation with best model
+    y_pred_best = best_model.predict(X_val)
+
+    print(f"Best params: max_depth={best_params[0]}, min_samples_leaf={best_params[1]}")
+    print(f"Best macro F1-score: {best_f1:.4f}")
+    print(f"Accuracy: {accuracy_score(y_val, y_pred_best):.4f}")
+    # print(f"Precision (macro): {precision_score(y_val, y_pred_best, average='macro'):.4f}")
+    # print(f"Recall (macro): {recall_score(y_val, y_pred_best, average='macro'):.4f}")
+    print("\nClassification Report:")
+    print(classification_report(y_val, y_pred_best))
+```
+
+
+:::{.callout-important title="Decision Tree Underfitting"}
+
+-   Macro F1 is flat (~0.50) across all three — the model handles imbalance slightly better than random but struggles with minority class.
+-   Class 1 Recall ~0.22–0.27: Some improvement over default behavior, but still poor.
+-   Accuracy is misleading, driven mainly by the dominant class (class 0 with 80%+ support).
+-   Precision for class 1 is low (~0.20) indicating many false positives.
+
+  
+
+**Improvement alternatives:**
+
+-   Tune the weight in a cost-sensitive way.
+-   Use `Grid search` or `Random search` or even `simulated annealing`
+-   Perform more feature engineering.
+:::
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
