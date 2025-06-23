@@ -1,0 +1,4 @@
+- source: index.qmd
+  quarto-pub:
+    - id: 39055407-054a-4570-81cf-5c012f9dcc74
+      url: https://dan-tshisungu.quarto.pub/faro-off-price-retail-analytics
