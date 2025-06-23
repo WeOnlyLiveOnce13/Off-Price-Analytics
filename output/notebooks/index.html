@@ -61,17 +61,17 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 </style>
 
 
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.5.1/jquery.min.js" integrity="sha512-bLT0Qm9VnAYZDflyKcBaQ2gg0hSYNQrJ8RilYldYQ1FxQYoCLtUjuuRuZo+fjqhx/qtq/1itJ0C2ejDxltZVFg==" crossorigin="anonymous"></script><script src="01-data_clean_and_prep_files/libs/clipboard/clipboard.min.js"></script>
-<script src="01-data_clean_and_prep_files/libs/quarto-html/quarto.js" type="module"></script>
-<script src="01-data_clean_and_prep_files/libs/quarto-html/tabsets/tabsets.js" type="module"></script>
-<script src="01-data_clean_and_prep_files/libs/quarto-html/popper.min.js"></script>
-<script src="01-data_clean_and_prep_files/libs/quarto-html/tippy.umd.min.js"></script>
-<script src="01-data_clean_and_prep_files/libs/quarto-html/anchor.min.js"></script>
-<link href="01-data_clean_and_prep_files/libs/quarto-html/tippy.css" rel="stylesheet">
-<link href="01-data_clean_and_prep_files/libs/quarto-html/quarto-syntax-highlighting-37eea08aefeeee20ff55810ff984fec1.css" rel="stylesheet" id="quarto-text-highlighting-styles">
-<script src="01-data_clean_and_prep_files/libs/bootstrap/bootstrap.min.js"></script>
-<link href="01-data_clean_and_prep_files/libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
-<link href="01-data_clean_and_prep_files/libs/bootstrap/bootstrap-bb462d781dde1847d9e3ccf7736099dd.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.5.1/jquery.min.js" integrity="sha512-bLT0Qm9VnAYZDflyKcBaQ2gg0hSYNQrJ8RilYldYQ1FxQYoCLtUjuuRuZo+fjqhx/qtq/1itJ0C2ejDxltZVFg==" crossorigin="anonymous"></script><script src="index_files/libs/clipboard/clipboard.min.js"></script>
+<script src="index_files/libs/quarto-html/quarto.js" type="module"></script>
+<script src="index_files/libs/quarto-html/tabsets/tabsets.js" type="module"></script>
+<script src="index_files/libs/quarto-html/popper.min.js"></script>
+<script src="index_files/libs/quarto-html/tippy.umd.min.js"></script>
+<script src="index_files/libs/quarto-html/anchor.min.js"></script>
+<link href="index_files/libs/quarto-html/tippy.css" rel="stylesheet">
+<link href="index_files/libs/quarto-html/quarto-syntax-highlighting-37eea08aefeeee20ff55810ff984fec1.css" rel="stylesheet" id="quarto-text-highlighting-styles">
+<script src="index_files/libs/bootstrap/bootstrap.min.js"></script>
+<link href="index_files/libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
+<link href="index_files/libs/bootstrap/bootstrap-bb462d781dde1847d9e3ccf7736099dd.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js" integrity="sha512-c3Nl8+7g4LMSTdrm621y7kf9v3SDPnhxLNhcjFJbKECVnmZHTdo+IRO05sNLTH/D3vA6u1X32ehoLC7WFVdheg==" crossorigin="anonymous"></script>
 
 <script type="application/javascript">define('jquery', [],function() {return window.jQuery;})</script>
@@ -115,17 +115,28 @@ window.Quarto = {
   <nav id="TOC" role="doc-toc" class="toc-active">
     <h2 id="toc-title">Table of contents</h2>
    
-  <ul class="collapse">
+  <ul>
   <li><a href="#background" id="toc-background" class="nav-link active" data-scroll-target="#background">1. Background</a></li>
   <li><a href="#data-cleaning-and-preparation" id="toc-data-cleaning-and-preparation" class="nav-link" data-scroll-target="#data-cleaning-and-preparation">2. Data Cleaning and preparation</a>
   <ul class="collapse">
   <li><a href="#load-data" id="toc-load-data" class="nav-link" data-scroll-target="#load-data">2.1. Load data</a></li>
   <li><a href="#dataset-inspection" id="toc-dataset-inspection" class="nav-link" data-scroll-target="#dataset-inspection">2.1. Dataset Inspection</a></li>
-  <li><a href="#data-quality-issues" id="toc-data-quality-issues" class="nav-link" data-scroll-target="#data-quality-issues">2.3. Data Quality issues</a></li>
+  <li><a href="#data-quality-issues" id="toc-data-quality-issues" class="nav-link" data-scroll-target="#data-quality-issues">2.3. Data Quality issues</a>
+  <ul class="collapse">
+  <li><a href="#duplicate-values" id="toc-duplicate-values" class="nav-link" data-scroll-target="#duplicate-values">2.3.1. Duplicate values</a></li>
+  <li><a href="#missing-value-analysis" id="toc-missing-value-analysis" class="nav-link" data-scroll-target="#missing-value-analysis">2.3.2. Missing value analysis</a></li>
+  <li><a href="#distribution-analysis" id="toc-distribution-analysis" class="nav-link" data-scroll-target="#distribution-analysis">2.3.3. Distribution analysis</a></li>
+  <li><a href="#data-preparation" id="toc-data-preparation" class="nav-link" data-scroll-target="#data-preparation">2.3.4. Data preparation</a></li>
+  </ul></li>
   </ul></li>
   <li><a href="#exploratory-data-analysis" id="toc-exploratory-data-analysis" class="nav-link" data-scroll-target="#exploratory-data-analysis">3. Exploratory Data Analysis</a>
   <ul class="collapse">
-  <li><a href="#top-performing" id="toc-top-performing" class="nav-link" data-scroll-target="#top-performing">3.1. Top performing</a></li>
+  <li><a href="#top-performing" id="toc-top-performing" class="nav-link" data-scroll-target="#top-performing">3.1. Top performing</a>
+  <ul class="collapse">
+  <li><a href="#a.-category-feature" id="toc-a.-category-feature" class="nav-link" data-scroll-target="#a.-category-feature">A. Category feature</a></li>
+  <li><a href="#b.-supplier-feature" id="toc-b.-supplier-feature" class="nav-link" data-scroll-target="#b.-supplier-feature">B. Supplier feature</a></li>
+  <li><a href="#c.-brand-feature" id="toc-c.-brand-feature" class="nav-link" data-scroll-target="#c.-brand-feature">C. Brand feature</a></li>
+  </ul></li>
   <li><a href="#discount-effect-on-top-brands-suppliers" id="toc-discount-effect-on-top-brands-suppliers" class="nav-link" data-scroll-target="#discount-effect-on-top-brands-suppliers">3.2. Discount effect on top brands &amp; suppliers</a></li>
   <li><a href="#average-turnover" id="toc-average-turnover" class="nav-link" data-scroll-target="#average-turnover">3.3. Average turnover</a></li>
   <li><a href="#clearance-impact" id="toc-clearance-impact" class="nav-link" data-scroll-target="#clearance-impact">3.4. Clearance Impact</a></li>
@@ -136,7 +147,12 @@ window.Quarto = {
   <li><a href="#target-encoding" id="toc-target-encoding" class="nav-link" data-scroll-target="#target-encoding">4.1. Target encoding</a></li>
   <li><a href="#feature-selection" id="toc-feature-selection" class="nav-link" data-scroll-target="#feature-selection">4.2. Feature Selection</a></li>
   <li><a href="#cross-validation" id="toc-cross-validation" class="nav-link" data-scroll-target="#cross-validation">4.3. Cross validation</a></li>
-  <li><a href="#train" id="toc-train" class="nav-link" data-scroll-target="#train">4.4. Train</a></li>
+  <li><a href="#train" id="toc-train" class="nav-link" data-scroll-target="#train">4.4. Train</a>
+  <ul class="collapse">
+  <li><a href="#base-logistic-regression" id="toc-base-logistic-regression" class="nav-link" data-scroll-target="#base-logistic-regression">4.4.1. Base Logistic regression</a></li>
+  <li><a href="#logistic-regression-with-class-weight" id="toc-logistic-regression-with-class-weight" class="nav-link" data-scroll-target="#logistic-regression-with-class-weight">4.4.2. Logistic regression with Class Weight</a></li>
+  <li><a href="#decision-tree" id="toc-decision-tree" class="nav-link" data-scroll-target="#decision-tree">4.4.3. Decision tree</a></li>
+  </ul></li>
   </ul></li>
   </ul>
 </nav>
@@ -224,7 +240,7 @@ suppliers move fastest, how pricing affects inventory turnover, and how customer
 </details>
 <div id="data-loading-1" class="cell-output cell-output-display">
 
-            <div id="yWv28D"></div>
+            <div id="VPudbl"></div>
             <script type="text/javascript" data-lets-plot-script="library">
                 if(!window.letsPlotCallQueue) {
                     window.letsPlotCallQueue = [];
@@ -248,9 +264,9 @@ suppliers move fastest, how pricing affects inventory turnover, and how customer
                         var div = document.createElement("div");
                         div.style.color = 'darkred';
                         div.textContent = 'Error loading Lets-Plot JS';
-                        document.getElementById("yWv28D").appendChild(div);
+                        document.getElementById("VPudbl").appendChild(div);
                     };
-                    var e = document.getElementById("yWv28D");
+                    var e = document.getElementById("VPudbl");
                     e.appendChild(script);
                 })()
             </script>
@@ -2051,7 +2067,7 @@ TOP 5 Suppliers by Revenue:
 <div class="cell-output cell-output-display">
 <div>
 <figure class="figure">
-<p><img src="01-data_clean_and_prep_files/figure-html/category-units-output-1.png" id="category-units" width="576" height="384" class="figure-img"></p>
+<p><img src="index_files/figure-html/category-units-output-1.png" id="category-units" width="576" height="384" class="figure-img"></p>
 </figure>
 </div>
 </div>
@@ -2073,7 +2089,7 @@ TOP 5 Suppliers by Revenue:
 <div class="cell-output cell-output-display">
 <div>
 <figure class="figure">
-<p><img src="01-data_clean_and_prep_files/figure-html/category-revenue-output-1.png" id="category-revenue" width="576" height="384" class="figure-img"></p>
+<p><img src="index_files/figure-html/category-revenue-output-1.png" id="category-revenue" width="576" height="384" class="figure-img"></p>
 </figure>
 </div>
 </div>
@@ -2115,7 +2131,7 @@ Category feature Insights
 <div class="cell-output cell-output-display">
 <div>
 <figure class="figure">
-<p><img src="01-data_clean_and_prep_files/figure-html/supplier-units-output-1.png" id="supplier-units" width="576" height="384" class="figure-img"></p>
+<p><img src="index_files/figure-html/supplier-units-output-1.png" id="supplier-units" width="576" height="384" class="figure-img"></p>
 </figure>
 </div>
 </div>
@@ -2137,7 +2153,7 @@ Category feature Insights
 <div class="cell-output cell-output-display">
 <div>
 <figure class="figure">
-<p><img src="01-data_clean_and_prep_files/figure-html/supplier-revenue-output-1.png" id="supplier-revenue" width="576" height="384" class="figure-img"></p>
+<p><img src="index_files/figure-html/supplier-revenue-output-1.png" id="supplier-revenue" width="576" height="384" class="figure-img"></p>
 </figure>
 </div>
 </div>
@@ -2178,7 +2194,7 @@ Supplier feature Insights
 <div class="cell-output cell-output-display">
 <div>
 <figure class="figure">
-<p><img src="01-data_clean_and_prep_files/figure-html/brand-units-output-1.png" id="brand-units" width="576" height="384" class="figure-img"></p>
+<p><img src="index_files/figure-html/brand-units-output-1.png" id="brand-units" width="576" height="384" class="figure-img"></p>
 </figure>
 </div>
 </div>
@@ -2200,7 +2216,7 @@ Supplier feature Insights
 <div class="cell-output cell-output-display">
 <div>
 <figure class="figure">
-<p><img src="01-data_clean_and_prep_files/figure-html/brand-revenue-output-1.png" id="brand-revenue" width="576" height="384" class="figure-img"></p>
+<p><img src="index_files/figure-html/brand-revenue-output-1.png" id="brand-revenue" width="576" height="384" class="figure-img"></p>
 </figure>
 </div>
 </div>
@@ -2290,7 +2306,7 @@ With Discount:
 <div class="cell-output cell-output-display">
 <div>
 <figure class="figure">
-<p><img src="01-data_clean_and_prep_files/figure-html/discount-distribution-plot-output-1.png" id="discount-distribution-plot" width="480" height="288" class="figure-img"></p>
+<p><img src="index_files/figure-html/discount-distribution-plot-output-1.png" id="discount-distribution-plot" width="480" height="288" class="figure-img"></p>
 </figure>
 </div>
 </div>
@@ -2326,7 +2342,7 @@ With Discount:
 <div class="cell-output cell-output-display">
 <div>
 <figure class="figure">
-<p><img src="01-data_clean_and_prep_files/figure-html/brand-discount-units-plot-output-1.png" id="brand-discount-units-plot" width="576" height="480" class="figure-img"></p>
+<p><img src="index_files/figure-html/brand-discount-units-plot-output-1.png" id="brand-discount-units-plot" width="576" height="480" class="figure-img"></p>
 </figure>
 </div>
 </div>
@@ -2381,7 +2397,7 @@ Brand discount % and Units
 <div class="cell-output cell-output-display">
 <div>
 <figure class="figure">
-<p><img src="01-data_clean_and_prep_files/figure-html/supplier-discount-units-plot-output-1.png" id="supplier-discount-units-plot" width="576" height="480" class="figure-img"></p>
+<p><img src="index_files/figure-html/supplier-discount-units-plot-output-1.png" id="supplier-discount-units-plot" width="576" height="480" class="figure-img"></p>
 </figure>
 </div>
 </div>
@@ -2425,7 +2441,7 @@ Supplier discount % and Units
 <div class="cell-output cell-output-display">
 <div>
 <figure class="figure">
-<p><img src="01-data_clean_and_prep_files/figure-html/brand-discount-analysis-output-1.png" id="brand-discount-analysis" width="624" height="576" class="figure-img"></p>
+<p><img src="index_files/figure-html/brand-discount-analysis-output-1.png" id="brand-discount-analysis" width="624" height="576" class="figure-img"></p>
 </figure>
 </div>
 </div>
@@ -2453,7 +2469,7 @@ Supplier discount % and Units
 <div class="cell-output cell-output-display">
 <div>
 <figure class="figure">
-<p><img src="01-data_clean_and_prep_files/figure-html/supplier-discount-analysis-output-1.png" id="supplier-discount-analysis" width="624" height="480" class="figure-img"></p>
+<p><img src="index_files/figure-html/supplier-discount-analysis-output-1.png" id="supplier-discount-analysis" width="624" height="480" class="figure-img"></p>
 </figure>
 </div>
 </div>
@@ -2532,7 +2548,7 @@ Top 5 Stores by weekly turnover:
 <div class="cell-output cell-output-display">
 <div>
 <figure class="figure">
-<p><img src="01-data_clean_and_prep_files/figure-html/plot-stores-sales-output-1.png" id="plot-stores-sales" width="672" height="480" class="figure-img"></p>
+<p><img src="index_files/figure-html/plot-stores-sales-output-1.png" id="plot-stores-sales" width="672" height="480" class="figure-img"></p>
 </figure>
 </div>
 </div>
@@ -2558,7 +2574,7 @@ Top 5 Stores by weekly turnover:
 <div class="cell-output cell-output-display">
 <div>
 <figure class="figure">
-<p><img src="01-data_clean_and_prep_files/figure-html/plot-top-stores-output-1.png" id="plot-top-stores" width="576" height="480" class="figure-img"></p>
+<p><img src="index_files/figure-html/plot-top-stores-output-1.png" id="plot-top-stores" width="576" height="480" class="figure-img"></p>
 </figure>
 </div>
 </div>
@@ -2585,7 +2601,7 @@ Top 5 Stores by weekly turnover:
 <div class="cell-output cell-output-display">
 <div>
 <figure class="figure">
-<p><img src="01-data_clean_and_prep_files/figure-html/store-week-trend-output-1.png" id="store-week-trend" width="1152" height="576" class="figure-img"></p>
+<p><img src="index_files/figure-html/store-week-trend-output-1.png" id="store-week-trend" width="1152" height="576" class="figure-img"></p>
 </figure>
 </div>
 </div>
@@ -2709,7 +2725,7 @@ Clearance:
 <div class="cell-output cell-output-display">
 <div>
 <figure class="figure">
-<p><img src="01-data_clean_and_prep_files/figure-html/clearance-return-sales-plots-output-2.png" id="clearance-return-sales-plots" width="768" height="576" class="figure-img"></p>
+<p><img src="index_files/figure-html/clearance-return-sales-plots-output-2.png" id="clearance-return-sales-plots" width="768" height="576" class="figure-img"></p>
 </figure>
 </div>
 </div>
