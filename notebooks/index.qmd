@@ -1742,7 +1742,8 @@ selected_cat = ['StoreID', 'Brand', 'Supplier', 'Category', 'Subcategory', 'Type
 #### 2. Split
 
 ```{python}
-
+#| code-fold: true
+#| label: split-df
 
 # Split
 df_train_full, df_test = train_test_split(df, test_size=0.2, random_state=42)
@@ -1760,7 +1761,7 @@ del df_train['ClearanceFlag']
 del df_val['ClearanceFlag']
 del df_test['ClearanceFlag']
 
-len(df_train),len(df_val),len(df_test)
+print(f"Training set: {len(df_train)}, Validation set: {len(df_val)} , Test set: {len(df_test)}")
 ```
 
 
@@ -1769,7 +1770,7 @@ len(df_train),len(df_val),len(df_test)
 
 ::::::{.panel-tabset title="Base model"}
 
-# Base model with "Revenue"
+## Base model with "Revenue"
 ```{python}
 #| code-fold: true
 #| label: base-model
@@ -1790,7 +1791,8 @@ X_val = dv.transform(val_dict)
 
 #### Training on Logistic regression
 
-model = LogisticRegression(solver='liblinear', C=1.0, max_iter=1000, random_state = 42)
+model = LogisticRegression(solver='liblinear', C=1.0, max_iter=1000, 
+class_weight='balanced',random_state = 42)
 model.fit(X_train, y_train)
 
 
@@ -1837,7 +1839,8 @@ X_val = dv.transform(val_dict)
 
 
 # Train logistic regression
-model = LogisticRegression(solver='liblinear', C=1.0, max_iter=1000, random_state=42)
+model = LogisticRegression(solver='liblinear', C=1.0, max_iter=1000,
+class_weight='balanced', random_state=42)
 model.fit(X_train, y_train)
 
 # Predict on validation
