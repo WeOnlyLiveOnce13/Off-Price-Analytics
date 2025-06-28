@@ -1871,3 +1871,20 @@ print(classification_report(y_val, y_pred))
 
 ## IV.3. Feature Engineering
 
+To enrich the features, we create new features to help the model learn better. The features will be created in the following groups:
+
+-   Temporal features: 
+    -   `IsWeekend`, `IsMonthEnd`, `IsMonthStart`, `IsPromotionSeason`
+-   Price features:
+    -   `DiscountCategory`, `DiscountedPriceCategory`, `PriceEfficiency`
+-   Interaction features:
+    -   `Region_Type`, `Region_Subcategory`, `Type_Subcategory`, `StoreID_Type`, `Supplier_Type`, etc
+    -   `Supplier_return_rate`, `Brand_return_rate`
+    
+After feature engineering, we will attempt to make the model more robust by trying out the following:
+
+
+-   Hyperparameter tuning
+-   Smote
+-   Oversampling
+-   Undersampling

@@ -296,7 +296,7 @@ suppliers move fastest, how pricing affects inventory turnover, and how customer
 </details>
 <div id="data-loading-1" class="cell-output cell-output-display">
 
-            <div id="YrGxcu"></div>
+            <div id="UhkV3y"></div>
             <script type="text/javascript" data-lets-plot-script="library">
                 if(!window.letsPlotCallQueue) {
                     window.letsPlotCallQueue = [];
@@ -320,9 +320,9 @@ suppliers move fastest, how pricing affects inventory turnover, and how customer
                         var div = document.createElement("div");
                         div.style.color = 'darkred';
                         div.textContent = 'Error loading Lets-Plot JS';
-                        document.getElementById("YrGxcu").appendChild(div);
+                        document.getElementById("UhkV3y").appendChild(div);
                     };
-                    var e = document.getElementById("YrGxcu");
+                    var e = document.getElementById("UhkV3y");
                     e.appendChild(script);
                 })()
             </script>
@@ -3359,7 +3359,7 @@ Note
 </section>
 <section id="split" class="level4">
 <h4 class="anchored" data-anchor-id="split">2. Split</h4>
-<div id="8eb5df01" class="cell" data-execution_count="43">
+<div id="566fc208" class="cell" data-execution_count="43">
 <div class="sourceCode cell-code" id="cb66"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb66-1"><a href="#cb66-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Split</span></span>
 <span id="cb66-2"><a href="#cb66-2" aria-hidden="true" tabindex="-1"></a>df_train_full, df_test <span class="op">=</span> train_test_split(df, test_size<span class="op">=</span><span class="fl">0.2</span>, random_state<span class="op">=</span><span class="dv">42</span>)</span>
 <span id="cb66-3"><a href="#cb66-3" aria-hidden="true" tabindex="-1"></a>df_train, df_val <span class="op">=</span> train_test_split(df_train_full, test_size<span class="op">=</span><span class="fl">0.25</span>, random_state<span class="op">=</span><span class="dv">42</span>)</span>
@@ -3542,6 +3542,29 @@ Note
 </section>
 <section id="iv.3.-feature-engineering" class="level2">
 <h2 class="anchored" data-anchor-id="iv.3.-feature-engineering">IV.3. Feature Engineering</h2>
+<p>To enrich the features, we create new features to help the model learn better. The features will be created in the following groups:</p>
+<ul>
+<li>Temporal features:
+<ul>
+<li><code>IsWeekend</code>, <code>IsMonthEnd</code>, <code>IsMonthStart</code>, <code>IsPromotionSeason</code></li>
+</ul></li>
+<li>Price features:
+<ul>
+<li><code>DiscountCategory</code>, <code>DiscountedPriceCategory</code>, <code>PriceEfficiency</code></li>
+</ul></li>
+<li>Interaction features:
+<ul>
+<li><code>Region_Type</code>, <code>Region_Subcategory</code>, <code>Type_Subcategory</code>, <code>StoreID_Type</code>, <code>Supplier_Type</code>, etc</li>
+<li><code>Supplier_return_rate</code>, <code>Brand_return_rate</code></li>
+</ul></li>
+</ul>
+<p>After feature engineering, we will attempt to make the model more robust by trying out the following:</p>
+<ul>
+<li>Hyperparameter tuning</li>
+<li>Smote</li>
+<li>Oversampling</li>
+<li>Undersampling</li>
+</ul>
 </section>
 </section>
 
